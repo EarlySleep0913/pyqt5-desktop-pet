@@ -1,8 +1,9 @@
 import os
 import random
-from PyQt5.QtCore import Qt, QTimer, QPoint, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty
-from PyQt5.QtGui import QPixmap, QPainter, QCursor, QTransform, QFont, QFontMetrics, QMovie, QColor, QPainterPath, QPen
+from PyQt5.QtCore import Qt, QTimer, QPoint, QSize
+from PyQt5.QtGui import QPixmap, QPainter, QCursor, QTransform, QFont, QMovie, QColor, QPen
 from PyQt5.QtWidgets import QWidget, QLabel, QApplication, QMenu, QAction
+import autostart
 
 from config_manager import ConfigManager
 from asset_manager import AssetManager
@@ -13,115 +14,77 @@ import control_panel as cp_module
 
 
 class BubbleLabel(QWidget):
-    """气泡对话框，带三角指向、淡入淡出动画"""
-
-    TAIL_H = 8
-    PAD_X = 14
-    PAD_Y = 8
-    RADIUS = 12
+    """气泡对话框，带小三角和阴影"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self._text = ""
-        self._opacity = 0.0
+        self._label = QLabel(self)
+        self._label.setAlignment(Qt.AlignCenter)
+        self._label.setWordWrap(True)
+        self._label.setStyleSheet("""
+            QLabel {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #fff5f8, stop:1 #ffe8ee);
+                color: #d63384;
+                border-radius: 16px;
+                padding: 10px 22px;
+                font-size: 14px;
+                font-weight: bold;
+                font-family: "Microsoft YaHei";
+                border: 1.5px solid rgba(214, 51, 132, 0.2);
+            }
+        """)
+        self.hide()
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
-        self._timer.timeout.connect(self.fade_out)
-
-        self._fade_anim = QPropertyAnimation(self, b"opacity")
-        self._fade_anim.setDuration(200)
-        self._fade_anim.setEasingCurve(QEasingCurve.OutCubic)
-
-    def get_opacity(self):
-        return self._opacity
-
-    def set_opacity(self, val):
-        self._opacity = val
-        self.update()
-
-    opacity = pyqtProperty(float, fget=get_opacity, fset=set_opacity)
+        self._timer.timeout.connect(self.hide)
 
     def show_text(self, text, duration=3000):
         if not text:
             return
         self._text = text
-        self._timer.stop()
+        self._label.setText(text)
+        self._label.adjustSize()
 
-        font = QFont("Microsoft YaHei", 11)
-        fm = QFontMetrics(font)
-        text_rect = fm.boundingRect(0, 0, 220, 100, Qt.TextWordWrap, text)
-        w = text_rect.width() + self.PAD_X * 2
-        h = text_rect.height() + self.PAD_Y * 2 + self.TAIL_H
+        lw = self._label.width()
+        lh = self._label.height()
+        tail_h = 10
+        total_h = lh + tail_h
+        total_w = lw + 4
 
         pw = self.parent().width() if self.parent() else 200
-        x = (pw - w) // 2
-        y = -h - 4
+        x = (pw - total_w) // 2
+        self.setGeometry(x, 0, total_w, total_h)
+        self._label.move(2, 0)
 
-        self.setGeometry(int(x), int(y), int(w), int(h))
         self.show()
         self.raise_()
-
-        self._fade_anim.stop()
-        self._fade_anim.setStartValue(self._opacity)
-        self._fade_anim.setEndValue(1.0)
-        self._fade_anim.start()
-
         self._timer.start(duration)
 
-    def fade_out(self):
-        self._fade_anim.stop()
-        self._fade_anim.setStartValue(self._opacity)
-        self._fade_anim.setEndValue(0.0)
-        self._fade_anim.finished.connect(self._on_fade_out_done)
-        self._fade_anim.start()
-
-    def _on_fade_out_done(self):
-        try:
-            self._fade_anim.finished.disconnect(self._on_fade_out_done)
-        except Exception:
-            pass
-        if self._opacity <= 0.01:
-            self.hide()
-
     def paintEvent(self, event):
-        if self._opacity < 0.01:
-            return
-
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        p.setOpacity(self._opacity)
 
-        bubble_rect = self.rect().adjusted(0, 0, 0, -self.TAIL_H)
+        # 画底部小三角
+        cx = self.width() // 2
+        top = self._label.height()
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 232, 238))
+        p.drawPolygon([
+            QPoint(cx - 8, top - 1),
+            QPoint(cx, top + 10),
+            QPoint(cx + 8, top - 1),
+        ])
 
-        shadow_path = QPainterPath()
-        shadow_path.addRoundedRect(bubble_rect.adjusted(1, 1, 1, 1), self.RADIUS, self.RADIUS)
-        p.fillPath(shadow_path, QColor(0, 0, 0, 25))
-
-        bg_path = QPainterPath()
-        bg_path.addRoundedRect(bubble_rect, self.RADIUS, self.RADIUS)
-
-        cx = bubble_rect.center().x()
-        tail_top = bubble_rect.bottom()
-        tail_path = QPainterPath()
-        tail_path.moveTo(cx - 7, tail_top - 1)
-        tail_path.lineTo(cx, tail_top + self.TAIL_H)
-        tail_path.lineTo(cx + 7, tail_top - 1)
-        tail_path.closeSubpath()
-
-        bg_path.addPath(tail_path)
-        p.fillPath(bg_path, QColor(255, 255, 255, 240))
-
-        pen = QPen(QColor(200, 200, 200, 120))
-        pen.setWidthF(0.8)
+        # 三角边框
+        pen = QPen(QColor(214, 51, 132, 50))
+        pen.setWidthF(1.2)
         p.setPen(pen)
-        p.drawPath(bg_path)
-
-        p.setPen(QColor(51, 51, 51))
-        font = QFont("Microsoft YaHei", 11)
-        p.setFont(font)
-        text_rect = bubble_rect.adjusted(self.PAD_X, self.PAD_Y, -self.PAD_X, -self.PAD_Y)
-        p.drawText(text_rect, Qt.TextWordWrap | Qt.AlignCenter, self._text)
+        p.setBrush(Qt.NoBrush)
+        p.drawLine(cx - 7, top, cx, top + 9)
+        p.drawLine(cx + 7, top, cx, top + 9)
 
         p.end()
 
@@ -538,6 +501,12 @@ class PetWidget(QWidget):
         panel_act.triggered.connect(self._open_control_panel)
         menu.addAction(panel_act)
 
+        autostart_act = QAction("开机自启", self)
+        autostart_act.setCheckable(True)
+        autostart_act.setChecked(autostart.is_enabled())
+        autostart_act.triggered.connect(self._toggle_autostart)
+        menu.addAction(autostart_act)
+
         exit_act = QAction("退出", self)
         exit_act.triggered.connect(QApplication.instance().quit)
         menu.addAction(exit_act)
@@ -545,6 +514,12 @@ class PetWidget(QWidget):
         menu.exec_(event.globalPos())
 
     # ─── Actions ───
+
+    def _toggle_autostart(self):
+        if autostart.is_enabled():
+            autostart.disable()
+        else:
+            autostart.enable()
 
     def _toggle_pause(self):
         self.is_paused = not self.is_paused
@@ -598,6 +573,11 @@ class PetWidget(QWidget):
         self.config_mgr.save()
 
     def _open_floating_menu(self, pos):
+        # 点击时也触发气泡想法
+        msgs = self.config_mgr.get_idle_messages()
+        if msgs:
+            self._show_bubble(random.choice(msgs))
+
         if self.floating_menu:
             self.floating_menu.close()
             self.floating_menu = None

@@ -1,7 +1,13 @@
 import os
+import sys
 import shutil
 
-ASSET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+def _get_base_dir():
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+ASSET_DIR = os.path.join(_get_base_dir(), "assets")
 SUPPORTED_EXTS = {".gif", ".mp4", ".webm", ".mov", ".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 

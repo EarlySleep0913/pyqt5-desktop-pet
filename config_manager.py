@@ -1,7 +1,14 @@
 import json
 import os
+import sys
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+def _get_base_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+CONFIG_FILE = os.path.join(_get_base_dir(), "config.json")
 
 DEFAULTS = {
     "windowSize": 200,
@@ -10,12 +17,12 @@ DEFAULTS = {
     "scaleFactor": 4,
     "petPosition": {"x": 100, "y": 100},
     "bubbleDuration": 3,
-    "idleInterval": 45,
+    "idleInterval": 30,
     "walkFrequency": 5,       # 走动频率：每隔几秒有概率触发走动（秒）
     "walkChance": 0.6,        # 每次触发时走动的概率（0-1）
     "walkDuration": 6,        # 单次走动持续时间（秒）
     "assets": [],
-    "bindings": {"idle": "", "walk": "", "walk_left": "", "walk_right": "", "drag": "", "pet": "", "feed": "", "play": ""},
+    "bindings": {"idle": "待机.gif", "walk": "右边走路.gif", "walk_left": "左边走路.gif", "walk_right": "右边走路.gif", "drag": "抓起.gif", "pet": "摸摸头.gif", "feed": "", "play": ""},
     "interactionStates": [
         {"key": "pet", "label": "摸摸", "emoji": "🤚"},
         {"key": "feed", "label": "喂食", "emoji": "🍖"},
@@ -27,7 +34,7 @@ DEFAULTS = {
         "play": ["好好玩~", "再来一次~", "哈哈~", "累死了~"],
         "drag": ["放开我~", "别拽我~", "头晕了~", "救命啊~"],
     },
-    "idleMessages": ["好无聊啊...", "你在干嘛？", "摸摸我嘛~", "困了...", "陪我玩~"],
+    "idleMessages": ["好喜欢你", "想宝宝了", "好喜欢冰冰呀", "饿饿的...", "什么时候吃饭呢..?", "想被宝宝摸摸..", "kisskiss~", "mua~", "宝宝！"],
 }
 
 
